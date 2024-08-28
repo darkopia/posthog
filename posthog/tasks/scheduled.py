@@ -8,7 +8,7 @@ from django.conf import settings
 
 from posthog.caching.warming import schedule_warming_for_teams_task
 from posthog.celery import app
-from posthog.tasks.alerts.checks import check_all_alerts_task
+from posthog.tasks.alerts.checks import check_all_alerts_task, checks_cleanup_task
 from posthog.tasks.integrations import refresh_integrations
 from posthog.tasks.tasks import (
     calculate_cohort,
@@ -40,12 +40,10 @@ from posthog.tasks.tasks import (
     redis_celery_queue_depth,
     redis_heartbeat,
     schedule_all_subscriptions,
-    schedule_cache_updates_task,
     send_org_usage_reports,
     start_poll_query_performance,
     stop_surveys_reached_target,
     sync_all_organization_available_product_features,
-    sync_insight_cache_states_task,
     update_event_partitions,
     update_quota_limiting,
     verify_persons_data_in_sync,
@@ -148,21 +146,6 @@ def setup_periodic_tasks(sender: Celery, **kwargs: Any) -> None:
     # Sync all Organization.available_product_features every hour, only for billing v1 orgs
     sender.add_periodic_task(crontab(minute="30", hour="*"), sync_all_organization_available_product_features.s())
 
-    sync_insight_cache_states_schedule = get_crontab(settings.SYNC_INSIGHT_CACHE_STATES_SCHEDULE)
-    if sync_insight_cache_states_schedule:
-        sender.add_periodic_task(
-            sync_insight_cache_states_schedule,
-            sync_insight_cache_states_task.s(),
-            name="sync insight cache states",
-        )
-
-    add_periodic_task_with_expiry(
-        sender,
-        settings.UPDATE_CACHED_DASHBOARD_ITEMS_INTERVAL_SECONDS,
-        schedule_cache_updates_task.s(),
-        "check dashboard items",
-    )
-
     sender.add_periodic_task(crontab(minute="*/15"), check_async_migration_health.s())
 
     if settings.INGESTION_LAG_METRIC_TEAM_IDS:
@@ -261,9 +244,15 @@ def setup_periodic_tasks(sender: Celery, **kwargs: Any) -> None:
     )
 
     sender.add_periodic_task(
-        crontab(hour="*", minute="20"),
+        crontab(hour="*", minute="45"),
         check_all_alerts_task.s(),
-        name="detect alerts' anomalies and notify about them",
+        name="check alerts for matches and send notifications",
+    )
+
+    sender.add_periodic_task(
+        crontab(hour="8", minute="0"),
+        checks_cleanup_task.s(),
+        name="clean up old alert checks",
     )
 
     if settings.EE_AVAILABLE:
