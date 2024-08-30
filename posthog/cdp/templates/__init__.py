@@ -14,6 +14,7 @@ from .mailjet.template_mailjet import (
 )
 from .zapier.template_zapier import template as zapier
 from .mailgun.template_mailgun import template_mailgun_send_email as mailgun
+from .avo.template_avo import template as avo
 
 
 HOG_FUNCTION_TEMPLATES = [
@@ -32,6 +33,7 @@ HOG_FUNCTION_TEMPLATES = [
     mailjet_update_contact_list,
     clearbit,
     mailgun,
+    avo,
 ]
 
 
