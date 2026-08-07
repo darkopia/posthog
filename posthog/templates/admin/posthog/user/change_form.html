@@ -1,0 +1,26 @@
+{% extends "loginas/change_form.html" %}
+
+{% block footer %}
+    {{ block.super }}
+    {# Pre-fill the "Log in as" reason from a ?reason= query param, so support tools can
+       deep-link an agent straight into impersonation with the ticket reference already set.
+       loginas clears the textarea when the modal opens, so we re-apply on link click too —
+       this handler binds after loginas's, and the setTimeout guarantees it runs last. #}
+    <script>
+        django.jQuery(function () {
+            var $ = django.jQuery;
+            var params = new URLSearchParams(window.location.search);
+            var reason = params.get('reason');
+            if (!reason) {
+                return;
+            }
+            var applyReason = function () {
+                $('#loginas-reason').val(reason);
+            };
+            applyReason();
+            $('#loginas-link').on('click', function () {
+                setTimeout(applyReason, 0);
+            });
+        });
+    </script>
+{% endblock %}
